@@ -1,16 +1,16 @@
+var returnValueGlobal=[true,"SyntaxError: Invalid or unexpected token.(NaN)"];
+
 jQuery('document').ready(function(){
 	typeCalculation();
 
 	workCalculator();
 
-
 	rules();
-	
 });
 
 function workCalculator(){// основная часть работы калькулятора
 	var saveDisplayLine="empty",
-		resultCalculation=["bool error","msg/result"];
+		typeCalculation;
 
 	jQuery('.panel button').on("click", function(){// событие клика на кнопку на панеле
 		var displayLine= jQuery('.display').val(), // текст на дисплее
@@ -20,12 +20,36 @@ function workCalculator(){// основная часть работы кальк
 			if(buttonOption=="=") // кнопка `равно`
 			{
 				saveDisplayLine=displayLine;
-				resultCalculation=clculationDisplayLine(displayLine);
-				if(resultCalculation[0]==true){
-					errorMsg=resultCalculation[1];
+
+				typeCalculation= jQuery.cookie('typeCalculation');
+				if(typeCalculation==null){
+					typeCalculation= "local";
 				}
-				else{
-					displayLine=resultCalculation[1];
+
+				if(typeCalculation=="local"){
+					calculationLocal(displayLine);
+					setTimeout(function(){
+						if(returnValueGlobal[0]==true){
+							errorMsg=returnValueGlobal[1];
+						}
+						else{
+							displayLine=returnValueGlobal[1];
+						}
+					},20);
+				}
+				else if(typeCalculation=="server"){
+					calculationServer(displayLine);
+					
+					setTimeout(function(){
+						if(returnValueGlobal[0]==true){
+							errorMsg=returnValueGlobal[1];
+						}
+						else{
+							displayLine=returnValueGlobal[1];
+						}
+					},20);
+					
+
 				}
 			}
 			else if(buttonOption=="copy"){ // кнопка `копировать`
@@ -65,7 +89,8 @@ function workCalculator(){// основная часть работы кальк
 			setTimeout(function(){
 				jQuery('.display').val(displayLine); // вывод отредактированого текста на дисплей
 				history(buttonOption, saveDisplayLine, errorMsg);
-			}, 5);
+				returnValueGlobal=[true,"SyntaxError: Invalid or unexpected token.(NaN)"];
+			}, 30);
 	});
 }
 
@@ -152,11 +177,10 @@ function history(buttonOption, saveDisplayLine, errorMsg){
 	return errorMsg="false";
 }
 
-function clculationDisplayLine(displayLine){
+function calculationLocal(displayLine){
 	displayLine=displayLine.replace(/\s+/g,""); // удаление пробелов
 
-	var returnValue=["bool error","msg/result"],
-		comma=displayLine.match(/[,]/g)!=null ? displayLine.match(/[,]/g).length : 0,
+	var comma=displayLine.match(/[,]/g)!=null ? displayLine.match(/[,]/g).length : 0,
 		pow=0;
 
 	if(/^[0-9-+*/().,sqrtpow]*$/.test(displayLine)){
@@ -164,24 +188,10 @@ function clculationDisplayLine(displayLine){
 
 		if (/pow/g.test(displayLine)){
 			pow= displayLine.match(/(pow)/g).length;
-
-			var p= displayLine.match(/[p]/g)!=null ? displayLine.match(/[p]/g).length : 0,
-				o= displayLine.match(/[o]/g)!=null ? displayLine.match(/[o]/g).length : 0,
-				w= displayLine.match(/[w]/g)!=null ? displayLine.match(/[w]/g).length : 0;
-
-			if(pow==p && pow==o && pow==w){
-				displayLine=displayLine.replace(/(pow)+/g, "Math.pow");
-			}
+			displayLine=displayLine.replace(/pow/g, "Math.pow");
 		}
 		if (/sqrt/g.test(displayLine)){
-			var sqrt= displayLine.match(/(sqrt)/g).length,
-				s= displayLine.match(/s/g)!=null ? displayLine.match(/[s]/g).length : 0,
-				q= displayLine.match(/q/g)!=null ? displayLine.match(/[q]/g).length : 0,
-				r= displayLine.match(/r/g)!=null ? displayLine.match(/[r]/g).length : 0,
-				t= displayLine.match(/t/g)!=null ? displayLine.match(/[t]/g).length : 0;
-			if(sqrt==s && sqrt==r && sqrt==r && sqrt==t){
-				displayLine=displayLine.replace(/sqrt/g,"Math.sqrt");
-			}
+			displayLine=displayLine.replace(/sqrt/g,"Math.sqrt");
 		}
 
 		try{
@@ -189,26 +199,39 @@ function clculationDisplayLine(displayLine){
 			resultCalculation=eval(displayLine);
 		}
 		catch(err){
-			returnValue[0]=true;
-			returnValue[1]=err+'.';
-			return returnValue;
+			returnValueGlobal[0]=true;
+			returnValueGlobal[1]=err+'.';
+			return;
 		}
 
 		if(isNaN(resultCalculation)){
-			returnValue[0]=true;
-			returnValue[1]="SyntaxError: Invalid or unexpected token.(NaN)";
+			returnValueGlobal[0]=true;
+			returnValueGlobal[1]="SyntaxError: Invalid or unexpected token.(NaN)";
 		}
-		else{console.log("3");
-			returnValue[0]=false;
-			returnValue[1]=resultCalculation;
+		else{
+			returnValueGlobal[0]=false;
+			returnValueGlobal[1]=resultCalculation;
 		}
 	}
 	else{
-		returnValue[0]=true;
-		returnValue[1]="SyntaxError: Unknown token.";
+		returnValueGlobal[0]=true;
+		returnValueGlobal[1]="SyntaxError: Unknown token.";
 	}
+}
 
-	return returnValue;
+function calculationServer(displayLine){
+	jQuery.ajax({
+		type: "POST",
+		url: "includes/ajax/calculationServer.php",
+		data: "displayLine="+encodeURIComponent(displayLine),
+		dataType: 'json',
+		cache: false,
+		success: function(resultCalculation){
+			returnValueGlobal[0]=resultCalculation[0];
+			returnValueGlobal[1]=resultCalculation[1];
+			
+		}
+	});
 }
 
 function rules(){
@@ -262,6 +285,6 @@ function typeCalculation(){
 	}
 	else{
 		jQuery.cookie('typeCalculation', 'local');
-		jQuery('.local').css("text-shadow","0 0 20px green");
+		jQuery('.local').css("text-shadow","3px 3px 20px green, -3px 3px 20px green, 3px -3px 20px green, -3px -3px 20px green");
 	}
 }
